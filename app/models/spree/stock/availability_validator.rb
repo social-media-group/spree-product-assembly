@@ -8,7 +8,7 @@ module Spree
                                                 .reject(&:pending?)
                                                 .sum(&:quantity)
 
-          return if unit_count >= line_item.quantity
+          return if unit_count >= variant_quantity
 
           quantity = variant_quantity - unit_count
           return if quantity.zero?
