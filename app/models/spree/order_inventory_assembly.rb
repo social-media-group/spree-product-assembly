@@ -5,43 +5,37 @@ module Spree
   class OrderInventoryAssembly < OrderInventory
     attr_reader :product
 
-    def initialize(line_item)
-      @order = line_item.order
+    def initialize(order, line_item)
+      @order = order
       @line_item = line_item
       @product = line_item.product
     end
 
-    def verify(shipment = nil)
-      if order.completed? || shipment.present?
-        line_item.quantity_by_variant.each do |part, total_parts|
+    def verify(shipment = nil, is_updated: false)
+      return unless order.completed? || shipment.present?
 
-          if Gem.loaded_specs['spree_core'].version >= Gem::Version.create('3.3.0')
-            existing_parts = line_item.inventory_units.where(variant: part).sum(&:quantity)
-          else
-            existing_parts = line_item.inventory_units.where(variant: part).count
-          end
+      line_item_changed = is_updated ? !line_item.saved_changes? : !line_item.changed?
+      line_item.quantity_by_variant.each do |part, total_parts|
+        existing_parts = if Gem.loaded_specs['spree_core'].version >= Gem::Version.create('3.3.0')
+                           line_item.inventory_units.where(variant: part).sum(&:quantity)
+                         else
+                           line_item.inventory_units.where(variant: part).count
+                         end
 
-          self.variant = part
+        self.variant = part
 
-          verify_parts(shipment, total_parts, existing_parts)
+        if existing_parts < total_parts
+          quantity = total_parts - existing_parts
+
+          shipment ||= determine_target_shipment
+          add_to_shipment(shipment, quantity)
+        elsif (existing_parts > total_parts) || (existing_parts == total_parts && line_item_changed)
+          verify_remove_from_shipment(shipment, total_parts, existing_parts)
         end
       end
     end
 
     private
-
-    def verify_parts(shipment, total_parts, existing_parts)
-      if existing_parts < total_parts
-        verifiy_add_to_shipment(shipment, total_parts, existing_parts)
-      elsif existing_parts > total_parts
-        verify_remove_from_shipment(shipment, total_parts, existing_parts)
-      end
-    end
-
-    def verifiy_add_to_shipment(shipment, total_parts, existing_parts)
-      shipment = determine_target_shipment unless shipment
-      add_to_shipment(shipment, total_parts - existing_parts)
-    end
 
     def verify_remove_from_shipment(shipment, total_parts, existing_parts)
       quantity = existing_parts - total_parts
@@ -51,6 +45,7 @@ module Spree
       else
         order.shipments.each do |shpment|
           break if quantity == 0
+
           quantity -= remove_from_shipment(shpment, quantity)
         end
       end
