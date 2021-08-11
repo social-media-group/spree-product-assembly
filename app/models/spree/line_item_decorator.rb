@@ -2,6 +2,8 @@ module Spree::LineItemDecorator
   def self.prepended(base)
     base.scope :assemblies, -> { joins(product: :parts).distinct }
     base.has_many :part_line_items, dependent: :destroy
+
+    base.before_destroy :verify_order_assembly_inventory_before_destroy, if: -> { order.has_checkout_step?('delivery') }
   end
 
   def any_units_shipped?
@@ -31,14 +33,21 @@ module Spree::LineItemDecorator
   private
 
   def update_inventory
-    if (changed? || target_shipment.present?) &&
-        order.has_checkout_step?("delivery")
-      if product.assembly?
-        Spree::OrderInventoryAssembly.new(self).verify(target_shipment)
-      else
-        Spree::OrderInventory.new(order, self).verify(target_shipment)
+    if product.assembly?
+      if (saved_changes? || target_shipment.present?) && order.has_checkout_step?('delivery')
+        verify_order_assembly_inventory
       end
+    else
+      super
     end
+  end
+
+  def verify_order_assembly_inventory
+    Spree::OrderInventoryAssembly.new(order, self).verify(target_shipment, is_updated: true)
+  end
+
+  def verify_order_assembly_inventory_before_destroy
+    Spree::OrderInventoryAssembly.new(order, self).verify(target_shipment)
   end
 
   def quantity_with_part_line_items(quantity)
