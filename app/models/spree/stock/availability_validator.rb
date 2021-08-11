@@ -4,23 +4,30 @@ module Spree
     class AvailabilityValidator < ActiveModel::Validator
       def validate(line_item)
         line_item.quantity_by_variant.each do |variant, variant_quantity|
-          inventory_units = line_item.inventory_units.where(variant: variant).count
-          quantity = variant_quantity - inventory_units
+          unit_count = line_item.inventory_units.where(variant: variant)
+                                                .reject(&:pending?)
+                                                .sum(&:quantity)
 
-          next if quantity <= 0
+          return if unit_count >= line_item.quantity
 
-          quantifier = Stock::Quantifier.new(variant)
+          quantity = variant_quantity - unit_count
+          return if quantity.zero?
 
-          unless quantifier.can_supply? quantity
-            display_name = %Q{#{variant.name}}
-            display_name += %Q{ (#{variant.options_text})} unless variant.options_text.blank?
+          return if item_variant_available?(variant, quantity)
 
-            line_item.errors[:quantity] << Spree.t(
-              :selected_quantity_not_available,
-              item: display_name.inspect
-            )
-          end
+          display_name = variant.name.to_s
+          display_name += " (#{variant.options_text})" unless variant.options_text.blank?
+          line_item.errors.add(:quantity,
+                               :selected_quantity_not_available,
+                               message: Spree.t(:selected_quantity_not_available, item: display_name.inspect))
         end
+      end
+
+      private
+
+      # Don't override item_available? in case we want to look up by line item elsewhere
+      def item_variant_available?(variant, quantity)
+        Spree::Stock::Quantifier.new(variant).can_supply?(quantity)
       end
     end
   end
