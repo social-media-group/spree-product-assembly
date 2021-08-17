@@ -4,23 +4,27 @@ module Spree::Cart::AddItemDecorator
   def add_to_line_item(order:, variant:, quantity: nil, options: {})
     options ||= {}
     quantity ||= 1
-    line_item = Spree::Dependencies.line_item_by_variant_finder.constantize.new.execute(order: order, variant: variant, options: options)
-    line_item_created = line_item.nil?
 
+    line_item = Spree::Dependencies.line_item_by_variant_finder.constantize.new.execute(order: order, variant: variant,
+                                                                                        options: options)
+
+    line_item_created = line_item.nil?
     if line_item_created
+      ap "LINE ITEM CREATE???"
       opts = ::Spree::PermittedAttributes.line_item_attributes.flatten.each_with_object({}) do |attribute, result|
         result[attribute] = options[attribute]
       end.merge(currency: order.currency).merge(whitelist(options)).delete_if { |_key, value| value.nil? }
 
       line_item = order.line_items.new(quantity: quantity,
-                                      variant: variant,
-                                      options: opts)
+                                       variant: variant,
+                                       options: opts)
     else
       line_item.quantity += quantity.to_i
     end
 
     line_item.target_shipment = options[:shipment] if options.key? :shipment
-    line_item.save!
+
+    return failure(line_item) unless line_item.save
 
     line_item.reload.update_price
 
