@@ -4,9 +4,10 @@ module Spree
     class AvailabilityValidator < ActiveModel::Validator
       def validate(line_item)
         line_item.quantity_by_variant.each do |variant, variant_quantity|
-          unit_count = line_item.inventory_units.where(variant: variant)
-                                                .reject(&:pending?)
-                                                .sum(&:quantity)
+          unit_count = line_item.inventory_units
+                                .where(variant: variant)
+                                .reject(&:pending?)
+                                .sum(&:quantity)
 
           return if unit_count >= variant_quantity
 
@@ -15,11 +16,21 @@ module Spree
 
           return if item_variant_available?(variant, quantity)
 
-          display_name = variant.name.to_s
-          display_name += " (#{variant.options_text})" unless variant.options_text.blank?
+          display_variant = if line_item.variant.product.assembly?
+                              # If it's an assembly we want the bundle name
+                              line_item.variant
+                            else
+                              # Otherwise we want the variant name
+                              variant
+                            end
+
+          display_name = display_variant.name.to_s
+          display_name += " (#{display_variant.options_text})" unless display_variant.options_text.blank?
+
           line_item.errors.add(:quantity,
                                :selected_quantity_not_available,
-                               message: Spree.t(:selected_quantity_not_available, item: display_name.inspect))
+                               message: Spree.t(:selected_quantity_not_available,
+                                                item: display_name.inspect))
         end
       end
 
