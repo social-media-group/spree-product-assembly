@@ -10,7 +10,6 @@ module Spree::Cart::AddItemDecorator
 
     line_item_created = line_item.nil?
     if line_item_created
-      ap "LINE ITEM CREATE???"
       opts = ::Spree::PermittedAttributes.line_item_attributes.flatten.each_with_object({}) do |attribute, result|
         result[attribute] = options[attribute]
       end.merge(currency: order.currency).merge(whitelist(options)).delete_if { |_key, value| value.nil? }
