@@ -26,7 +26,7 @@ module Spree::ShipmentDecorator
           quantity = units.length
         end
 
-        part = line_item.try(:product).try(:assembly?) || false
+        part = line_item.try(:product).try(:assembly?) && variant.try(:part?) || false
         ManifestItem.new(part,
                           line_item.try(:product),
                           line_item,
