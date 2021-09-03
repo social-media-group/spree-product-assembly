@@ -17,6 +17,8 @@ module Spree
             # We also want to track the main sku.
             mapped_line_items << build_inventory_unit(line_item.variant, line_item, line_item.quantity)
           end
+
+          mapped_line_items
         end
       end
 
