@@ -9,12 +9,14 @@ module Spree
                                 .reject(&:pending?)
                                 .sum(&:quantity)
 
-          return if unit_count >= variant_quantity
+          next if unit_count >= variant_quantity
 
           quantity = variant_quantity - unit_count
-          return if quantity.zero?
+          next if quantity.zero?
 
-          return if item_variant_available?(variant, quantity)
+          # We actually want to check the whole order's variant.
+          cart_quantity = variant_cart_quantity(line_item, variant, quantity)
+          next if item_variant_available?(variant, cart_quantity)
 
           display_variant = if line_item.variant.product.assembly?
                               # If it's an assembly we want the bundle name
@@ -35,6 +37,10 @@ module Spree
       end
 
       private
+
+      def variant_cart_quantity(line_item, variant, quantity)
+        Spree::Stock::CartEstimator.new(line_item, variant, quantity).run
+      end
 
       # Don't override item_available? in case we want to look up by line item elsewhere
       def item_variant_available?(variant, quantity)

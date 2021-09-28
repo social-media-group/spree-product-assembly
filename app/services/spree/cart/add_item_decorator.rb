@@ -28,7 +28,7 @@ module Spree::Cart::AddItemDecorator
     line_item.reload.update_price
 
     ::Spree::TaxRate.adjust(order, [line_item]) if line_item_created
-    populate_part_line_items(line_item: line_item, options: options) if options[:populate]
+    populate_part_line_items(line_item: line_item, options: options) if line_item.product.assembly?
     success(order: order, line_item: line_item, line_item_created: line_item_created, options: options)
   end
 

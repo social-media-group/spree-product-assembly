@@ -19,14 +19,31 @@ module Spree::LineItemDecorator
   end
 
   def quantity_by_variant
+    # main item, be it a bundle or otherwise
+    mapped_variants = { variant => quantity }
+
     if product.assembly?
+      # bundle parts
       if part_line_items.any?
-        quantity_with_part_line_items(quantity)
+        quantity_with_part_line_items(quantity, mapped_variants)
       else
-        quantity_without_part_line_items(quantity)
+        quantity_without_part_line_items(quantity, mapped_variants)
+      end
+    end
+
+    mapped_variants
+  end
+
+  def sufficient_stock?
+    if product.assembly?
+      quantity_by_variant.all? do |variant, variant_quantity|
+        cart_quantity = Spree::Stock::CartEstimator.new(self, variant, variant_quantity).run
+        Spree::Stock::Quantifier.new(variant).can_supply? cart_quantity
       end
     else
-      { variant => quantity }
+      # need the whole cart quantity
+      cart_quantity = Spree::Stock::CartEstimator.new(self, variant, quantity).run
+      Spree::Stock::Quantifier.new(variant).can_supply? cart_quantity
     end
   end
 
@@ -50,15 +67,15 @@ module Spree::LineItemDecorator
     Spree::OrderInventoryAssembly.new(order, self).verify(target_shipment)
   end
 
-  def quantity_with_part_line_items(quantity)
-    part_line_items.each_with_object({}) do |ap, hash|
-      hash[ap.variant] = ap.quantity * quantity
+  def quantity_with_part_line_items(quantity, map)
+    part_line_items.each_with_object({}) do |part, hash|
+      map[part.variant] = part.quantity * quantity
     end
   end
 
-  def quantity_without_part_line_items(quantity)
-    product.assemblies_parts.each_with_object({}) do |ap, hash|
-      hash[ap.part] = ap.count * quantity
+  def quantity_without_part_line_items(quantity, map)
+    product.assemblies_parts.each_with_object({}) do |part, hash|
+      map[part.part] = part.count * quantity
     end
   end
 end
