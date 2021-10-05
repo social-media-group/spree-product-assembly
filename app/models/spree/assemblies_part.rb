@@ -22,6 +22,17 @@ module Spree
       end
     end
 
+    def in_stock?
+      # if the part is discontinued, then it's no bueno.
+      return false if part.discontinued?
+
+      # if the product is set to not track inventory, or the stock items are backorderable
+      # then the product is "in stock" to buy.
+      return true if !part.product.master.track_inventory? || part.stock_items.any?(&:backorderable)
+
+      part.stock_items.sum(&:count_on_hand) >= count
+    end
+
     private
 
     def set_master_unlimited_stock

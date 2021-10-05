@@ -17,8 +17,7 @@ module Spree::VariantDecorator
 
   def in_stock?
     if parts.present?
-      # if there are parts, we need to check their availability
-      parts.not_discontinued.all?(&:in_stock?)
+      parts_variants.all?(&:in_stock?) && super
     else
       super
     end
