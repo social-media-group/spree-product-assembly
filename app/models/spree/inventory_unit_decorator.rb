@@ -6,9 +6,13 @@ module Spree::InventoryUnitDecorator
                            original_return_item.return_quantity
                          else
                            if line_item.product.assembly?
-                             part_count = line_item.part_line_items
-                                                   .where(variant_id: variant.id)
-                                                   .sum(&:quantity)
+                             part_count = if line_item.part_line_items.any?
+                                            line_item.part_line_items
+                                                     .where(variant_id: variant.id)
+                                                     .sum(&:quantity)
+                                          else
+                                            line_item.count_of(variant)
+                                          end
 
                              line_item.quantity * part_count
                            else
