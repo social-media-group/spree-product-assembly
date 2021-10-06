@@ -11,7 +11,9 @@ module Spree::InventoryUnitDecorator
                                                      .where(variant_id: variant.id)
                                                      .sum(&:quantity)
                                           else
-                                            line_item.count_of(variant)
+                                            line_item.product.assemblies_parts
+                                                             .where(part_id: variant.id)
+                                                             .sum(&:count)
                                           end
 
                              line_item.quantity * part_count
