@@ -16,6 +16,10 @@ module Spree::InventoryUnitDecorator
                                                              .sum(&:count)
                                           end
 
+                             # A part attached must have a minimum count of one,
+                             # or it isn't attached. This is required to the main line item.
+                             part_count = 1 unless part_count.positive?
+
                              line_item.quantity * part_count
                            else
                              line_item.quantity
